@@ -4,6 +4,12 @@ const { sendWhatsApp } = require('../../services/evolutionApi');
 
 const nanoidInvite = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 8);
 
+function isValidPhone(phone) {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('55')) return digits.length >= 12 && digits.length <= 13;
+  return digits.length >= 10 && digits.length <= 11;
+}
+
 function buildWhatsAppMessage({ invitedName, referrerName, baseUrl, inviteCode }) {
   return (
     `Olá, ${invitedName}! 🎉\n\n` +
@@ -31,6 +37,12 @@ module.exports = async function (fastify) {
 
     if (!program_slug || !referrer_name || !referrer_phone || !invited_name || !invited_phone) {
       return reply.status(400).send({ error: 'Campos obrigatórios: program_slug, referrer_name, referrer_phone, invited_name, invited_phone' });
+    }
+    if (!isValidPhone(referrer_phone)) {
+      return reply.status(400).send({ error: 'Número de WhatsApp do indicador inválido. Verifique o DDD e os dígitos.' });
+    }
+    if (!isValidPhone(invited_phone)) {
+      return reply.status(400).send({ error: 'Número de WhatsApp do convidado inválido. Verifique o DDD e os dígitos.' });
     }
 
     const progResult = await db.query(
