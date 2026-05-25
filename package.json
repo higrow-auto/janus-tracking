@@ -1,0 +1,19 @@
+{
+  "name": "jet",
+  "version": "1.0.0",
+  "description": "Enterprise UTM & Link Management Platform",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/static": "^7.0.4",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.27.0",
+    "ioredis": "^5.3.2",
+    "nanoid": "^3.3.7",
+    "pg": "^8.11.5"
+  }
+}

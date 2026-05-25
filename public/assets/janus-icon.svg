@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4C1D95"/>
+      <stop offset="50%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#BE185D"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#F472B6"/>
+    </linearGradient>
+    <filter id="s">
+      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#A78BFA" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="48" height="48" rx="11" fill="url(#bg)"/>
+
+  <!-- Two mirrored J letters forming a symmetric gate/arch symbol -->
+  <!-- Left J -->
+  <path d="M11 11 L20 11 L20 30 Q20 37 13 37"
+        stroke="url(#arc)" stroke-width="3.5" fill="none"
+        stroke-linecap="round" stroke-linejoin="round" filter="url(#s)"/>
+
+  <!-- Right J (mirrored) -->
+  <path d="M37 11 L28 11 L28 30 Q28 37 35 37"
+        stroke="url(#arc)" stroke-width="3.5" fill="none"
+        stroke-linecap="round" stroke-linejoin="round" filter="url(#s)" opacity="0.75"/>
+
+  <!-- Central glowing node — the gateway keystone -->
+  <circle cx="24" cy="11" r="3.5" fill="white" filter="url(#s)"/>
+</svg>

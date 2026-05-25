@@ -1,0 +1,89 @@
+version: "3.9"
+
+## ─── JET — Enterprise UTM & Link Manager ─────────────────────── ##
+
+services:
+
+  app:
+    image: jet-app:latest
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=jetdb
+      - DB_PORT=5432
+      - DB_NAME=jet
+      - DB_USER=jet
+      - DB_PASSWORD=J3tDb@2025!Secure
+      - REDIS_HOST=jetredis
+      - REDIS_PORT=6379
+      - ADMIN_PASSWORD=J3tAdm1n@2025!
+      - META_PIXEL_ID=
+      - META_ACCESS_TOKEN=
+      - META_TEST_EVENT_CODE=
+      - HOTMART_SECRET=
+    networks:
+      - admhigrownet
+      - jet_internal
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.jet.rule=Host(`jan.escolatocha.com.br`)
+        - traefik.http.routers.jet.entrypoints=websecure
+        - traefik.http.routers.jet.priority=1
+        - traefik.http.routers.jet.tls.certresolver=letsencryptresolver
+        - traefik.http.services.jet.loadbalancer.server.port=3000
+        - traefik.http.services.jet.loadbalancer.passHostHeader=true
+
+  jetdb:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=jet
+      - POSTGRES_USER=jet
+      - POSTGRES_PASSWORD=J3tDb@2025!Secure
+    volumes:
+      - jet_postgres_data:/var/lib/postgresql/data
+    networks:
+      - jet_internal
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+
+  jetredis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - jet_redis_data:/data
+    networks:
+      - jet_internal
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+
+volumes:
+  jet_postgres_data:
+  jet_redis_data:
+
+networks:
+  admhigrownet:
+    external: true
+    name: admhigrownet
+  jet_internal:
+    driver: overlay
+    attachable: true
+
+## ─── JET ─────────────────────────────────────────────────────── ##
