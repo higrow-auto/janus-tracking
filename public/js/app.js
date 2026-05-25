@@ -791,35 +791,79 @@ const Pages = {
 
   /* REFERRAL PROGRAMS */
   async referralPrograms() {
-    const origin = window.location.origin;
     document.getElementById('page-content').innerHTML = `
       <div class="page">
         <div class="page-header">
           <div>
-            <div class="page-title">Indicações — Programas</div>
-            <div class="page-sub">Gerencie os programas de indicação Member Get Member</div>
+            <div class="page-title">Indicações</div>
+            <div class="page-sub">Programas Member Get Member e convites</div>
           </div>
-          <button class="btn btn-primary" onclick="Pages.openCreateProgram()">
-            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-            Novo Programa
-          </button>
         </div>
-        <div class="card" style="padding:0">
-          <div id="programs-wrap"><div class="empty-state"><p>Carregando...</p></div></div>
+
+        <div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:16px">
+          <button id="tab-btn-programs"
+            style="padding:8px 20px;background:none;border:none;border-bottom:2px solid #7C3AED;color:#E8EAFF;font-weight:600;cursor:pointer;margin-bottom:-2px;font-size:14px;font-family:inherit"
+            onclick="Pages.switchReferralTab('programs')">Programas</button>
+          <button id="tab-btn-convites"
+            style="padding:8px 20px;background:none;border:none;border-bottom:2px solid transparent;color:#7B85B0;font-weight:500;cursor:pointer;margin-bottom:-2px;font-size:14px;font-family:inherit"
+            onclick="Pages.switchReferralTab('convites')">Convites</button>
+        </div>
+
+        <div id="tab-programs">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+            <button class="btn btn-primary" style="width:auto" onclick="Pages.openCreateProgram()">
+              <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              Novo Programa
+            </button>
+          </div>
+          <div class="card" style="padding:0">
+            <div id="programs-wrap"><div class="empty-state"><p>Carregando...</p></div></div>
+          </div>
+        </div>
+
+        <div id="tab-convites" style="display:none">
+          <div class="toolbar">
+            <select class="filter-select" id="ref-prog-filter" onchange="Pages.loadReferralsTab()" style="min-width:220px">
+              <option value="">Todos os programas</option>
+            </select>
+          </div>
+          <div class="stats-grid" id="ref-stats-grid" style="margin-bottom:16px"></div>
+          <div class="card" style="padding:0">
+            <div id="referrals-wrap"><div class="empty-state"><p>Carregando...</p></div></div>
+          </div>
         </div>
       </div>`;
-
-    await Pages.loadPrograms();
 
     document.getElementById('programs-wrap').addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
       const { action, id, name, slug, active } = btn.dataset;
+      const origin = window.location.origin;
       if (action === 'copy-link') copyLink(`${origin}/indica/${slug}`);
       if (action === 'toggle-prog') Pages.toggleProgram(id, active === 'true');
       if (action === 'delete-prog') Pages.deleteProgram(id, name);
       if (action === 'edit-prog') Pages.openEditProgram(id);
+      if (action === 'view-convites') Pages.switchReferralTab('convites', id);
     });
+
+    await Pages.loadPrograms();
+  },
+
+  switchReferralTab(tab, programId) {
+    const isPrograms = tab === 'programs';
+    document.getElementById('tab-programs').style.display = isPrograms ? '' : 'none';
+    document.getElementById('tab-convites').style.display = isPrograms ? 'none' : '';
+    const active = 'padding:8px 20px;background:none;border:none;border-bottom:2px solid #7C3AED;color:#E8EAFF;font-weight:600;cursor:pointer;margin-bottom:-2px;font-size:14px;font-family:inherit';
+    const inactive = 'padding:8px 20px;background:none;border:none;border-bottom:2px solid transparent;color:#7B85B0;font-weight:500;cursor:pointer;margin-bottom:-2px;font-size:14px;font-family:inherit';
+    document.getElementById('tab-btn-programs').style.cssText = isPrograms ? active : inactive;
+    document.getElementById('tab-btn-convites').style.cssText = isPrograms ? inactive : active;
+    if (!isPrograms) {
+      if (programId) {
+        const sel = document.getElementById('ref-prog-filter');
+        if (sel) sel.value = programId;
+      }
+      Pages.loadReferralsTab();
+    }
   },
 
   async loadPrograms() {
@@ -828,6 +872,17 @@ const Pages = {
     const origin = window.location.origin;
     try {
       const programs = await API.get('/referral-programs');
+
+      const sel = document.getElementById('ref-prog-filter');
+      if (sel && programs?.length) {
+        sel.innerHTML = '<option value="">Todos os programas</option>';
+        programs.forEach(p => {
+          const o = document.createElement('option');
+          o.value = p.id; o.textContent = p.name;
+          sel.appendChild(o);
+        });
+      }
+
       if (!programs?.length) {
         wrap.innerHTML = `<div class="empty-state"><div class="icon">🤝</div><p>Nenhum programa criado ainda</p></div>`;
         return;
@@ -858,6 +913,8 @@ const Pages = {
                 </td>
                 <td>
                   <div class="actions">
+                    <button class="btn btn-secondary btn-sm" data-action="view-convites" data-id="${esc(p.id)}"
+                            title="Ver convites deste programa">Convites</button>
                     <button class="btn-icon" title="Editar"
                             data-action="edit-prog" data-id="${esc(p.id)}">
                       <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
@@ -907,7 +964,6 @@ const Pages = {
           <div class="field">
             <label>URL de Destino (após confirmação)</label>
             <input type="url" id="f-prog-group" placeholder="https://chat.whatsapp.com/...">
-            <p class="field-hint">O convidado será redirecionado automaticamente para este link.</p>
           </div>
         </div>
 
@@ -925,7 +981,53 @@ const Pages = {
           <div class="field">
             <label>URL do Webhook</label>
             <input type="url" id="f-prog-webhook" placeholder="https://hook.make.com/... ou https://n8n.io/webhook/...">
-            <p class="field-hint">Recebe um POST JSON com: event, program, claimed (nome/email/tel), referrer, invite_code.</p>
+            <p class="field-hint">Recebe um POST JSON com: event, program, claimed, referrer, invite_code.</p>
+          </div>
+        </div>
+
+        <div class="settings-section-label" style="margin-top:16px">UTM Parameters <span style="font-weight:400;opacity:.6">(opcionais)</span></div>
+        <div class="field-row">
+          <div class="field"><label>utm_source</label><input type="text" id="f-utm_source" placeholder="indica"></div>
+          <div class="field"><label>utm_medium</label><input type="text" id="f-utm_medium" placeholder="mgm"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>utm_campaign</label><input type="text" id="f-utm_campaign" placeholder="frequencia-ativa"></div>
+          <div class="field"><label>utm_term</label><input type="text" id="f-utm_term"></div>
+        </div>
+        <div class="field"><label>utm_content</label><input type="text" id="f-utm_content"></div>
+
+        <div class="toggle-row" style="margin:16px 0 8px">
+          <div>
+            <div class="toggle-label">Personalização visual</div>
+            <div class="toggle-sub">Logo, cores e textos personalizados na página de indicação</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="f-prog-brand-toggle" onchange="Pages.toggleBrandFields(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="f-prog-brand-wrap" style="display:none">
+          <div class="field">
+            <label>URL da Logo</label>
+            <input type="url" id="f-brand-logo" placeholder="https://exemplo.com/logo.png">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Cor Primária</label>
+              <input type="text" id="f-brand-primary" placeholder="#7C3AED">
+            </div>
+            <div class="field">
+              <label>Cor Secundária</label>
+              <input type="text" id="f-brand-secondary" placeholder="#EC4899">
+            </div>
+          </div>
+          <div class="field">
+            <label>Título do Formulário</label>
+            <input type="text" id="f-brand-title" placeholder="Indique um amigo">
+          </div>
+          <div class="field">
+            <label>Subtítulo</label>
+            <input type="text" id="f-brand-subtitle" placeholder="Seus amigos vão adorar!">
           </div>
         </div>
       </form>`,
@@ -946,12 +1048,19 @@ const Pages = {
     if (input && !on) input.value = '';
   },
 
+  toggleBrandFields(on) {
+    document.getElementById('f-prog-brand-wrap').style.display = on ? 'block' : 'none';
+  },
+
   async openEditProgram(id) {
     try {
       const p = await API.get(`/referral-programs/${id}`);
       if (!p) return;
       const hasRedirect = !!p.group_redirect_url;
       const hasWebhook  = !!p.webhook_url;
+      const utm = p.utm_parameters || {};
+      const hasBrand = !!(p.brand_logo_url || p.brand_primary_color || p.brand_secondary_color || p.form_title || p.form_subtitle);
+
       Modal.open('Editar Programa', `
         <form id="modal-form">
           <div class="field">
@@ -977,8 +1086,7 @@ const Pages = {
           <div id="f-prog-redirect-wrap" style="display:${hasRedirect ? 'block' : 'none'}">
             <div class="field">
               <label>URL de Destino</label>
-              <input type="url" id="f-prog-group" value="${esc(p.group_redirect_url)}"
-                     ${hasRedirect ? 'required' : ''}>
+              <input type="url" id="f-prog-group" value="${esc(p.group_redirect_url || '')}">
             </div>
           </div>
 
@@ -996,7 +1104,54 @@ const Pages = {
           <div id="f-prog-webhook-wrap" style="display:${hasWebhook ? 'block' : 'none'}">
             <div class="field">
               <label>URL do Webhook</label>
-              <input type="url" id="f-prog-webhook" value="${esc(p.webhook_url)}">
+              <input type="url" id="f-prog-webhook" value="${esc(p.webhook_url || '')}">
+            </div>
+          </div>
+
+          <div class="settings-section-label" style="margin-top:16px">UTM Parameters <span style="font-weight:400;opacity:.6">(opcionais)</span></div>
+          <div class="field-row">
+            <div class="field"><label>utm_source</label><input type="text" id="f-utm_source" value="${esc(utm.utm_source || '')}" placeholder="indica"></div>
+            <div class="field"><label>utm_medium</label><input type="text" id="f-utm_medium" value="${esc(utm.utm_medium || '')}" placeholder="mgm"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>utm_campaign</label><input type="text" id="f-utm_campaign" value="${esc(utm.utm_campaign || '')}" placeholder=""></div>
+            <div class="field"><label>utm_term</label><input type="text" id="f-utm_term" value="${esc(utm.utm_term || '')}" placeholder=""></div>
+          </div>
+          <div class="field"><label>utm_content</label><input type="text" id="f-utm_content" value="${esc(utm.utm_content || '')}" placeholder=""></div>
+
+          <div class="toggle-row" style="margin:16px 0 8px">
+            <div>
+              <div class="toggle-label">Personalização visual</div>
+              <div class="toggle-sub">Logo, cores e textos personalizados na página de indicação</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="f-prog-brand-toggle" ${hasBrand ? 'checked' : ''}
+                     onchange="Pages.toggleBrandFields(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div id="f-prog-brand-wrap" style="display:${hasBrand ? 'block' : 'none'}">
+            <div class="field">
+              <label>URL da Logo</label>
+              <input type="url" id="f-brand-logo" value="${esc(p.brand_logo_url || '')}" placeholder="https://...">
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Cor Primária</label>
+                <input type="text" id="f-brand-primary" value="${esc(p.brand_primary_color || '')}" placeholder="#7C3AED">
+              </div>
+              <div class="field">
+                <label>Cor Secundária</label>
+                <input type="text" id="f-brand-secondary" value="${esc(p.brand_secondary_color || '')}" placeholder="#EC4899">
+              </div>
+            </div>
+            <div class="field">
+              <label>Título do Formulário</label>
+              <input type="text" id="f-brand-title" value="${esc(p.form_title || '')}" placeholder="Indique um amigo">
+            </div>
+            <div class="field">
+              <label>Subtítulo</label>
+              <input type="text" id="f-brand-subtitle" value="${esc(p.form_subtitle || '')}" placeholder="">
             </div>
           </div>
         </form>`,
@@ -1016,10 +1171,22 @@ const Pages = {
     if (!name) { toast('Nome é obrigatório', 'error'); return; }
     if (redirectOn && !group) { toast('Informe a URL de destino do redirecionamento', 'error'); return; }
 
+    const utmParams = {};
+    ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'].forEach(k => {
+      const v = document.getElementById(`f-${k}`)?.value?.trim();
+      if (v) utmParams[k] = v;
+    });
+
     const payload = {
       name,
-      group_redirect_url: redirectOn ? group : '',
-      webhook_url: webhook,
+      group_redirect_url:    redirectOn ? group : '',
+      webhook_url:           webhook,
+      utm_parameters:        utmParams,
+      brand_logo_url:        document.getElementById('f-brand-logo')?.value?.trim()     || '',
+      brand_primary_color:   document.getElementById('f-brand-primary')?.value?.trim()  || '',
+      brand_secondary_color: document.getElementById('f-brand-secondary')?.value?.trim()|| '',
+      form_title:            document.getElementById('f-brand-title')?.value?.trim()    || '',
+      form_subtitle:         document.getElementById('f-brand-subtitle')?.value?.trim() || '',
     };
 
     try {
@@ -1055,51 +1222,7 @@ const Pages = {
     } catch (e) { toast(e.message, 'error'); }
   },
 
-  /* REFERRALS (Convites) */
-  async referrals() {
-    document.getElementById('page-content').innerHTML = `
-      <div class="page">
-        <div class="page-header">
-          <div>
-            <div class="page-title">Convites</div>
-            <div class="page-sub">Acompanhe todas as indicações e confirmações</div>
-          </div>
-        </div>
-        <div class="toolbar">
-          <select class="filter-select" id="ref-prog-filter" onchange="Pages.loadReferrals()" style="min-width:220px">
-            <option value="">Todos os programas</option>
-          </select>
-        </div>
-        <div class="stats-grid" id="ref-stats-grid" style="margin-bottom:16px">
-          ${[...Array(3)].map(() => `
-            <div class="stat-card">
-              <div class="stat-label">Carregando...</div>
-              <div class="stat-value">—</div>
-            </div>`).join('')}
-        </div>
-        <div class="card" style="padding:0">
-          <div id="referrals-wrap"><div class="empty-state"><p>Carregando...</p></div></div>
-        </div>
-      </div>`;
-
-    try {
-      const programs = await API.get('/referral-programs');
-      if (programs?.length) {
-        const sel = document.getElementById('ref-prog-filter');
-        if (sel) {
-          programs.forEach(p => {
-            const o = document.createElement('option');
-            o.value = p.id; o.textContent = p.name;
-            sel.appendChild(o);
-          });
-        }
-      }
-    } catch {}
-
-    await Pages.loadReferrals();
-  },
-
-  async loadReferrals() {
+  async loadReferralsTab() {
     const wrap = document.getElementById('referrals-wrap');
     const statsGrid = document.getElementById('ref-stats-grid');
     if (!wrap) return;
@@ -1111,9 +1234,9 @@ const Pages = {
       const rows = await API.get(`/referrals${qs}`);
 
       if (statsGrid) {
-        const total    = rows?.length ?? 0;
-        const claimed  = rows?.filter(r => r.status === 'claimed').length ?? 0;
-        const pending  = rows?.filter(r => r.status === 'pending').length ?? 0;
+        const total   = rows?.length ?? 0;
+        const claimed = rows?.filter(r => r.status === 'claimed').length ?? 0;
+        const pending = rows?.filter(r => r.status === 'pending').length ?? 0;
         statsGrid.innerHTML = `
           <div class="stat-card">
             <div class="stat-label">Total de Convites</div>
@@ -1139,22 +1262,34 @@ const Pages = {
           <thead>
             <tr>
               <th>Data</th><th>Programa</th>
-              <th>Indicador</th><th>Convidado</th>
-              <th>Código</th><th>WhatsApp</th><th>Status</th><th>Confirmação</th>
+              <th>Indicador</th><th>Convidado</th><th>Confirmado por</th>
+              <th>Código</th><th>WhatsApp</th><th>Status</th><th>UTMs</th>
             </tr>
           </thead>
           <tbody>
-            ${rows.map(r => `
+            ${rows.map(r => {
+              const utm = r.utm_data || {};
+              const utmStr = Object.entries(utm).filter(([,v]) => v).map(([k,v]) => `${k.replace('utm_','')}=${esc(v)}`).join(' · ');
+              return `
               <tr>
                 <td class="text-sm">${new Date(r.created_at).toLocaleDateString('pt-BR')}</td>
                 <td><span class="badge badge-blue">${esc(r.program_name)}</span></td>
                 <td>
                   <div>${esc(r.referrer_name)}</div>
                   <div class="text-muted text-sm">${esc(r.referrer_phone)}</div>
+                  ${r.referrer_email ? `<div class="text-muted text-sm">${esc(r.referrer_email)}</div>` : ''}
                 </td>
                 <td>
                   <div>${esc(r.invited_name)}</div>
                   <div class="text-muted text-sm">${esc(r.invited_phone)}</div>
+                </td>
+                <td>
+                  ${r.claimed_name ? `
+                    <div>${esc(r.claimed_name)}</div>
+                    <div class="text-muted text-sm">${esc(r.claimed_email || '')}</div>
+                    <div class="text-muted text-sm">${esc(r.claimed_phone || '')}</div>
+                    <div class="text-muted text-sm">${r.claimed_at ? new Date(r.claimed_at).toLocaleDateString('pt-BR') : ''}</div>
+                  ` : '<span class="text-muted text-sm">—</span>'}
                 </td>
                 <td><code style="font-size:12px;color:#C4B5FD">${esc(r.invite_code)}</code></td>
                 <td>
@@ -1167,11 +1302,9 @@ const Pages = {
                     ? '<span class="badge badge-green">Confirmado</span>'
                     : '<span class="badge badge-violet">Pendente</span>'}
                 </td>
-                <td class="text-sm text-muted">
-                  ${r.claimed_at ? new Date(r.claimed_at).toLocaleDateString('pt-BR') : '—'}
-                  ${r.claimed_email ? `<div>${esc(r.claimed_email)}</div>` : ''}
-                </td>
-              </tr>`).join('')}
+                <td class="text-sm text-muted">${utmStr || '—'}</td>
+              </tr>`;
+            }).join('')}
           </tbody>
         </table></div>`;
     } catch (e) { toast(e.message, 'error'); }
@@ -1193,12 +1326,11 @@ const Pages = {
 
         <div class="settings-grid">
 
-          <!-- ── CREDENCIAIS ───────────────────────── -->
+          <!-- ── META ADS ───────────────────────── -->
           <div class="card">
-            <div class="card-title">Credenciais das Integrações</div>
-            <div id="creds-status" class="settings-status-row"></div>
-            <form id="creds-form" class="creds-form">
-              <div class="settings-section-label">Meta Ads</div>
+            <div class="card-title">Meta Ads — Conversions API</div>
+            <div id="meta-status" class="settings-status-row"></div>
+            <form id="meta-form" class="creds-form">
               <div class="field-row">
                 <div class="field">
                   <label>Pixel ID</label>
@@ -1214,35 +1346,40 @@ const Pages = {
                 <input type="password" id="s-access-token" placeholder="EAABxx... (deixe em branco para não alterar)">
                 <p class="field-hint">Gere em: Meta Business Manager → Configurações → Usuários do sistema → Gerar token</p>
               </div>
+              <div class="field" style="margin-top:4px">
+                <button type="button" class="btn btn-primary" onclick="Pages.saveMetaSettings()">Salvar Meta Ads</button>
+              </div>
+            </form>
+          </div>
 
-              <div class="settings-section-label" style="margin-top:14px">Hotmart</div>
+          <!-- ── HOTMART ───────────────────────── -->
+          <div class="card">
+            <div class="card-title">Hotmart</div>
+            <div id="hotmart-status" class="settings-status-row"></div>
+            <form id="hotmart-form" class="creds-form">
               <div class="field">
                 <label>Hottok (segredo do webhook)</label>
                 <input type="password" id="s-hotmart-secret" placeholder="(deixe em branco para não alterar)">
                 <p class="field-hint">Copie do painel Hotmart → Ferramentas → Webhooks</p>
               </div>
-
-              <div class="settings-section-label" style="margin-top:14px">WhatsApp — Evolution API</div>
-              <div class="field">
-                <label>API URL</label>
-                <input type="url" id="s-evo-url" placeholder="https://evo.suaapi.com">
-                <p class="field-hint">URL base da sua instância Evolution API</p>
-              </div>
-              <div class="field-row">
-                <div class="field">
-                  <label>API Key</label>
-                  <input type="password" id="s-evo-key" placeholder="(deixe em branco para não alterar)">
-                </div>
-                <div class="field">
-                  <label>Instance (nome da instância)</label>
-                  <input type="text" id="s-evo-instance" placeholder="meu-numero">
-                </div>
-              </div>
-
               <div class="field" style="margin-top:4px">
-                <button type="button" class="btn btn-primary" onclick="Pages.saveSettings()">Salvar configurações</button>
+                <button type="button" class="btn btn-primary" onclick="Pages.saveHotmartSettings()">Salvar Hotmart</button>
               </div>
             </form>
+          </div>
+
+          <!-- ── WHATSAPP / CANAIS ───────────────────────── -->
+          <div class="card">
+            <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+              <span>WhatsApp — Canais Evolution API</span>
+              <button class="btn btn-primary btn-sm" style="width:auto" onclick="Pages.openAddInstance()">
+                <svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                Adicionar Canal
+              </button>
+            </div>
+            <div id="instances-wrap" style="margin-top:12px">
+              <div class="empty-state"><p>Carregando...</p></div>
+            </div>
           </div>
 
           <!-- ── URLs DOS WEBHOOKS ──────────────────── -->
@@ -1309,6 +1446,7 @@ const Pages = {
 
     await Promise.all([
       Pages.loadSettingsForm(),
+      Pages.loadInstances(),
       Pages.loadWebhookEvents(),
       Pages.loadLeads(),
     ]);
@@ -1318,53 +1456,154 @@ const Pages = {
     try {
       const s = await API.get('/settings');
       if (!s) return;
-      document.getElementById('s-pixel-id').value    = s.meta_pixel_id || '';
-      document.getElementById('s-test-code').value   = s.meta_test_event_code || '';
+      document.getElementById('s-pixel-id').value  = s.meta_pixel_id || '';
+      document.getElementById('s-test-code').value = s.meta_test_event_code || '';
       document.getElementById('s-access-token').placeholder =
         s.meta_access_token ? `Token atual: ${s.meta_access_token} — deixe vazio para manter` : 'EAABxx...';
       document.getElementById('s-hotmart-secret').placeholder =
         s.hotmart_secret ? `Token atual: ${s.hotmart_secret} — deixe vazio para manter` : 'Hottok do Hotmart';
-
-      const evoUrl = document.getElementById('s-evo-url');
-      const evoInst = document.getElementById('s-evo-instance');
-      if (evoUrl) evoUrl.value = s.evolution_api_url || '';
-      if (evoInst) evoInst.value = s.evolution_instance || '';
-      const evoKeyEl = document.getElementById('s-evo-key');
-      if (evoKeyEl) evoKeyEl.placeholder = s.evolution_api_key
-        ? `Chave atual: ${s.evolution_api_key} — deixe vazio para manter`
-        : '(deixe em branco para não alterar)';
-
-      document.getElementById('creds-status').innerHTML = `
+      document.getElementById('meta-status').innerHTML = `
         <span class="badge ${s.meta_capi_active ? 'badge-green' : 'badge-red'}">
           Meta CAPI: ${s.meta_capi_active ? 'Ativo' : 'Não configurado'}
-        </span>
+        </span>`;
+      document.getElementById('hotmart-status').innerHTML = `
         <span class="badge ${s.hotmart_active ? 'badge-green' : 'badge-red'}">
           Hotmart: ${s.hotmart_active ? 'Ativo' : 'Sem token'}
-        </span>
-        <span class="badge ${s.evolution_active ? 'badge-green' : 'badge-red'}">
-          WhatsApp: ${s.evolution_active ? 'Ativo' : 'Não configurado'}
         </span>`;
     } catch (e) { toast(e.message, 'error'); }
   },
 
-  async saveSettings() {
+  async saveMetaSettings() {
     const payload = {
-      meta_pixel_id:        document.getElementById('s-pixel-id')?.value?.trim()      || '',
-      meta_access_token:    document.getElementById('s-access-token')?.value?.trim()  || '',
-      meta_test_event_code: document.getElementById('s-test-code')?.value?.trim()     || '',
-      hotmart_secret:       document.getElementById('s-hotmart-secret')?.value?.trim()|| '',
-      evolution_api_url:    document.getElementById('s-evo-url')?.value?.trim()       || '',
-      evolution_api_key:    document.getElementById('s-evo-key')?.value?.trim()       || '',
-      evolution_instance:   document.getElementById('s-evo-instance')?.value?.trim()  || '',
+      meta_pixel_id:        document.getElementById('s-pixel-id')?.value?.trim()     || '',
+      meta_access_token:    document.getElementById('s-access-token')?.value?.trim() || '',
+      meta_test_event_code: document.getElementById('s-test-code')?.value?.trim()    || '',
     };
     try {
       await API.put('/settings', payload);
       Cache.del('/settings');
-      toast('Configurações salvas!');
+      toast('Configurações Meta salvas!');
       document.getElementById('s-access-token').value = '';
-      document.getElementById('s-hotmart-secret').value = '';
-      document.getElementById('s-evo-key').value = '';
       await Pages.loadSettingsForm();
+    } catch (e) { toast(e.message, 'error'); }
+  },
+
+  async saveHotmartSettings() {
+    const payload = { hotmart_secret: document.getElementById('s-hotmart-secret')?.value?.trim() || '' };
+    try {
+      await API.put('/settings', payload);
+      Cache.del('/settings');
+      toast('Configurações Hotmart salvas!');
+      document.getElementById('s-hotmart-secret').value = '';
+      await Pages.loadSettingsForm();
+    } catch (e) { toast(e.message, 'error'); }
+  },
+
+  async loadInstances() {
+    const wrap = document.getElementById('instances-wrap');
+    if (!wrap) return;
+    try {
+      const rows = await API.get('/evolution-instances');
+      if (!rows?.length) {
+        wrap.innerHTML = `<div class="empty-state"><div class="icon">📱</div><p>Nenhum canal configurado ainda</p></div>`;
+        return;
+      }
+      wrap.innerHTML = rows.map(inst => `
+        <div class="integration-row" id="inst-row-${esc(inst.id)}" style="align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1">
+            <div style="font-weight:600;color:var(--text-1)">${esc(inst.channel_name)}</div>
+            ${inst.phone ? `<div class="text-muted text-sm">${esc(inst.phone)}</div>` : ''}
+            <div class="text-sm text-muted" style="margin-top:2px">
+              <code style="font-size:11px">${esc(inst.instance_name)}</code> · ${esc(inst.api_url)}
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <span class="badge ${inst.is_connected ? 'badge-green' : 'badge-red'}" id="inst-badge-${esc(inst.id)}">
+              ${inst.is_connected ? 'Conectado' : 'Desconectado'}
+            </span>
+            ${inst.last_checked ? `<div class="text-muted" style="font-size:10px">verificado ${new Date(inst.last_checked).toLocaleString('pt-BR')}</div>` : ''}
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn btn-secondary btn-sm" onclick="Pages.verifyInstance('${esc(inst.id)}')">Verificar</button>
+            <button class="btn-icon danger" title="Excluir" onclick="Pages.deleteInstance('${esc(inst.id)}', '${esc(inst.channel_name)}')">
+              <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
+        </div>`).join('');
+    } catch (e) { wrap.innerHTML = `<p class="text-muted" style="padding:12px">${esc(e.message)}</p>`; }
+  },
+
+  openAddInstance() {
+    Modal.open('Adicionar Canal WhatsApp', `
+      <form id="modal-form">
+        <div class="field">
+          <label>Nome do Canal *</label>
+          <input type="text" id="f-inst-name" placeholder="Suporte / Vendas / Principal" required autofocus>
+        </div>
+        <div class="field">
+          <label>Telefone <span class="field-hint-inline">(opcional)</span></label>
+          <input type="tel" id="f-inst-phone" placeholder="+55 11 99999-9999">
+        </div>
+        <div class="field">
+          <label>API URL *</label>
+          <input type="url" id="f-inst-url" placeholder="https://evo.suaapi.com" required>
+        </div>
+        <div class="field">
+          <label>Nome da Instância *</label>
+          <input type="text" id="f-inst-instance" placeholder="meu-numero" required>
+        </div>
+        <div class="field">
+          <label>API Key *</label>
+          <input type="text" id="f-inst-key" placeholder="sua-chave-aqui" required>
+        </div>
+      </form>`,
+      () => Pages.saveInstance(),
+      'Adicionar Canal'
+    );
+  },
+
+  async saveInstance() {
+    const channel_name  = document.getElementById('f-inst-name')?.value?.trim();
+    const phone         = document.getElementById('f-inst-phone')?.value?.trim() || '';
+    const api_url       = document.getElementById('f-inst-url')?.value?.trim();
+    const instance_name = document.getElementById('f-inst-instance')?.value?.trim();
+    const api_key       = document.getElementById('f-inst-key')?.value?.trim();
+    if (!channel_name || !api_url || !instance_name || !api_key) {
+      toast('Preencha todos os campos obrigatórios', 'error'); return;
+    }
+    try {
+      await API.post('/evolution-instances', { channel_name, phone, api_url, instance_name, api_key });
+      Cache.del('/evolution-instances');
+      toast('Canal adicionado!');
+      Modal.close();
+      await Pages.loadInstances();
+    } catch (e) { toast(e.message, 'error'); }
+  },
+
+  async verifyInstance(id) {
+    const badge = document.getElementById(`inst-badge-${id}`);
+    if (badge) { badge.textContent = 'Verificando...'; badge.className = 'badge'; }
+    try {
+      const res = await API.post(`/evolution-instances/${id}/verify`, {});
+      Cache.del('/evolution-instances');
+      if (badge) {
+        badge.className = `badge ${res.is_connected ? 'badge-green' : 'badge-red'}`;
+        badge.textContent = res.is_connected ? 'Conectado' : 'Desconectado';
+      }
+      toast(res.is_connected ? 'Canal conectado!' : 'Canal desconectado');
+    } catch (e) {
+      if (badge) { badge.className = 'badge badge-red'; badge.textContent = 'Erro'; }
+      toast(e.message, 'error');
+    }
+  },
+
+  async deleteInstance(id, name) {
+    if (!confirm(`Excluir o canal "${name}"?`)) return;
+    try {
+      await API.del(`/evolution-instances/${id}`);
+      Cache.del('/evolution-instances');
+      toast('Canal excluído');
+      await Pages.loadInstances();
     } catch (e) { toast(e.message, 'error'); }
   },
 

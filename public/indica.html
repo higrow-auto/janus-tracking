@@ -388,9 +388,43 @@
   </div>
 
   <script>
-    const slug = window.location.pathname.split('/').pop();
+    const slug = window.location.pathname.replace(/^\/indica\//, '');
     let referrerData = {};
     let messageText = '';
+
+    // Load brand config and apply custom styles/text
+    fetch('/api/referrals/brand/' + slug)
+      .then(r => r.ok ? r.json() : null)
+      .then(brand => {
+        if (!brand) return;
+        const root = document.documentElement;
+        if (brand.brand_primary_color) {
+          root.style.setProperty('--primary', brand.brand_primary_color);
+          root.style.setProperty('--primary-d', brand.brand_primary_color);
+          root.style.setProperty('--primary-l', brand.brand_primary_color);
+          root.style.setProperty('--primary-glow', brand.brand_primary_color + '38');
+        }
+        if (brand.brand_secondary_color) {
+          root.style.setProperty('--accent', brand.brand_secondary_color);
+          root.style.setProperty('--accent-glow', brand.brand_secondary_color + '2e');
+        }
+        if (brand.brand_logo_url) {
+          const logoText = document.querySelector('.logo-text');
+          if (logoText) {
+            const img = document.createElement('img');
+            img.src = brand.brand_logo_url;
+            img.style.cssText = 'max-height:48px;max-width:180px;object-fit:contain;margin-bottom:4px';
+            logoText.replaceWith(img);
+          }
+        }
+        if (brand.form_title) {
+          document.querySelectorAll('.card-title').forEach((el, i) => { if (i === 0) el.textContent = brand.form_title; });
+        }
+        if (brand.form_subtitle) {
+          document.querySelectorAll('.card-desc').forEach((el, i) => { if (i === 0) el.textContent = brand.form_subtitle; });
+        }
+      })
+      .catch(() => {});
 
     function showError(id, msg) {
       const el = document.getElementById(id);
