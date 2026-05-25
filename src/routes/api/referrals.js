@@ -106,7 +106,9 @@ module.exports = async function (fastify) {
     }
 
     const { rows } = await db.query(
-      `SELECT r.id, r.status, p.group_redirect_url
+      `SELECT r.id, r.status, r.referrer_name, r.referrer_phone,
+              r.invited_name, r.invited_phone, r.invite_code,
+              p.group_redirect_url, p.webhook_url, p.name AS program_name
        FROM referrals r
        JOIN referral_programs p ON p.id = r.program_id
        WHERE r.invite_code = $1`,
@@ -123,6 +125,10 @@ module.exports = async function (fastify) {
       return reply.status(409).send({ error: 'Este código já foi utilizado' });
     }
 
+    const name  = claimed_name.trim();
+    const email = claimed_email.trim();
+    const phone = claimed_phone.trim();
+
     await db.query(
       `UPDATE referrals SET
          status = 'claimed',
@@ -131,10 +137,26 @@ module.exports = async function (fastify) {
          claimed_phone = $3,
          claimed_at = NOW()
        WHERE id = $4`,
-      [claimed_name.trim(), claimed_email.trim(), claimed_phone.trim(), referral.id]
+      [name, email, phone, referral.id]
     );
 
-    return reply.send({ group_redirect_url: referral.group_redirect_url });
+    // Disparo de webhook externo — fire-and-forget
+    if (referral.webhook_url) {
+      fetch(referral.webhook_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'referral_claimed',
+          program: referral.program_name,
+          claimed: { name, email, phone },
+          referrer: { name: referral.referrer_name, phone: referral.referrer_phone },
+          invite_code: referral.invite_code,
+          claimed_at: new Date().toISOString(),
+        }),
+      }).catch(err => console.error('[referral webhook]', err.message));
+    }
+
+    return reply.send({ group_redirect_url: referral.group_redirect_url || null });
   });
 
   // ── Admin: listar indicações ──────────────────────────────────────────────

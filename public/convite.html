@@ -285,9 +285,9 @@
           <div class="success-title">Você está dentro!</div>
           <div class="success-desc">
             Sua vaga foi confirmada com sucesso.<br />
-            Você será redirecionado para o grupo agora.
+            Guarde este momento — você está dentro!
           </div>
-          <div class="redirect-note">
+          <div class="redirect-note hidden" id="redirect-section">
             Redirecionando em <span class="countdown" id="countdown">3</span>s...
           </div>
         </div>
@@ -400,20 +400,27 @@
           return;
         }
 
-        // Sucesso — inicia countdown e redireciona
+        // Sucesso
         document.getElementById('form-claim').classList.add('hidden');
         document.getElementById('view-success').classList.remove('hidden');
 
-        let count = 3;
-        const countEl = document.getElementById('countdown');
-        const timer = setInterval(() => {
-          count--;
-          countEl.textContent = count;
-          if (count <= 0) {
-            clearInterval(timer);
-            window.location.href = data.group_redirect_url;
-          }
-        }, 1000);
+        if (data.group_redirect_url) {
+          // Redireciona com countdown
+          document.getElementById('redirect-section').classList.remove('hidden');
+          let count = 3;
+          const countEl = document.getElementById('countdown');
+          const timer = setInterval(() => {
+            count--;
+            countEl.textContent = count;
+            if (count <= 0) {
+              clearInterval(timer);
+              window.location.href = data.group_redirect_url;
+            }
+          }, 1000);
+        } else {
+          // Sem redirect — apenas mostra sucesso
+          document.getElementById('redirect-section').classList.add('hidden');
+        }
 
       } catch (err) {
         showError('Erro de conexão. Verifique sua internet e tente novamente.');

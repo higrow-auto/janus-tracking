@@ -24,9 +24,9 @@ module.exports = async function (fastify) {
   });
 
   fastify.post('/referral-programs', async (req, reply) => {
-    const { name, slug, group_redirect_url } = req.body || {};
-    if (!name || !slug || !group_redirect_url) {
-      return reply.status(400).send({ error: 'name, slug e group_redirect_url são obrigatórios' });
+    const { name, slug, group_redirect_url, webhook_url } = req.body || {};
+    if (!name || !slug) {
+      return reply.status(400).send({ error: 'name e slug são obrigatórios' });
     }
 
     const cleanSlug = slug.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -35,22 +35,39 @@ module.exports = async function (fastify) {
     if (existing.rows.length) return reply.status(409).send({ error: 'Slug já em uso' });
 
     const { rows } = await db.query(
-      `INSERT INTO referral_programs (name, slug, group_redirect_url)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [name.trim(), cleanSlug, group_redirect_url.trim()]
+      `INSERT INTO referral_programs (name, slug, group_redirect_url, webhook_url)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [
+        name.trim(),
+        cleanSlug,
+        group_redirect_url?.trim() || null,
+        webhook_url?.trim() || null,
+      ]
     );
     return reply.status(201).send(rows[0]);
   });
 
   fastify.put('/referral-programs/:id', async (req, reply) => {
-    const { name, group_redirect_url, active } = req.body || {};
+    const { name, group_redirect_url, webhook_url, active } = req.body || {};
+
+    // group_redirect_url pode ser explicitamente null para limpar o campo
+    const redirectVal = group_redirect_url === '' ? null
+      : group_redirect_url?.trim() || null;
+
     const { rows } = await db.query(
       `UPDATE referral_programs SET
-         name = COALESCE($1, name),
-         group_redirect_url = COALESCE($2, group_redirect_url),
-         active = COALESCE($3, active)
-       WHERE id = $4 RETURNING *`,
-      [name || null, group_redirect_url || null, active !== undefined ? active : null, req.params.id]
+         name               = COALESCE($1, name),
+         group_redirect_url = CASE WHEN $2::text IS NOT NULL THEN $2 ELSE group_redirect_url END,
+         webhook_url        = CASE WHEN $3::text IS NOT NULL THEN $3 ELSE webhook_url END,
+         active             = COALESCE($4, active)
+       WHERE id = $5 RETURNING *`,
+      [
+        name || null,
+        group_redirect_url !== undefined ? redirectVal : null,
+        webhook_url !== undefined ? (webhook_url?.trim() || null) : null,
+        active !== undefined ? active : null,
+        req.params.id,
+      ]
     );
     if (!rows.length) return reply.status(404).send({ error: 'Not found' });
     return rows[0];

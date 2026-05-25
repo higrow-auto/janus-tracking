@@ -892,10 +892,41 @@ const Pages = {
           <input type="text" id="f-prog-slug" placeholder="frequencia-ativa" required>
           <p class="field-hint">Apenas letras minúsculas, números e hífens. Ex: frequencia-ativa</p>
         </div>
-        <div class="field">
-          <label>Link do Grupo WhatsApp (destino pós-confirmação) *</label>
-          <input type="url" id="f-prog-group" placeholder="https://chat.whatsapp.com/..." required>
-          <p class="field-hint">O convidado será redirecionado automaticamente para este link após confirmar a vaga.</p>
+
+        <div class="toggle-row" style="margin:16px 0 8px">
+          <div>
+            <div class="toggle-label">Redirecionar após confirmação</div>
+            <div class="toggle-sub">Envia o convidado para um link (ex: grupo do WhatsApp) automaticamente</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="f-prog-redirect-toggle" onchange="Pages.toggleRedirectField(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="f-prog-redirect-wrap" style="display:none">
+          <div class="field">
+            <label>URL de Destino (após confirmação)</label>
+            <input type="url" id="f-prog-group" placeholder="https://chat.whatsapp.com/...">
+            <p class="field-hint">O convidado será redirecionado automaticamente para este link.</p>
+          </div>
+        </div>
+
+        <div class="toggle-row" style="margin:16px 0 8px">
+          <div>
+            <div class="toggle-label">Enviar para API / Webhook</div>
+            <div class="toggle-sub">Dispara um POST com os dados do convidado ao confirmar a vaga</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="f-prog-webhook-toggle" onchange="Pages.toggleWebhookField(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="f-prog-webhook-wrap" style="display:none">
+          <div class="field">
+            <label>URL do Webhook</label>
+            <input type="url" id="f-prog-webhook" placeholder="https://hook.make.com/... ou https://n8n.io/webhook/...">
+            <p class="field-hint">Recebe um POST JSON com: event, program, claimed (nome/email/tel), referrer, invite_code.</p>
+          </div>
         </div>
       </form>`,
       () => Pages.submitProgram(null),
@@ -903,10 +934,24 @@ const Pages = {
     );
   },
 
+  toggleRedirectField(on) {
+    document.getElementById('f-prog-redirect-wrap').style.display = on ? 'block' : 'none';
+    const input = document.getElementById('f-prog-group');
+    if (input) { input.required = on; if (!on) input.value = ''; }
+  },
+
+  toggleWebhookField(on) {
+    document.getElementById('f-prog-webhook-wrap').style.display = on ? 'block' : 'none';
+    const input = document.getElementById('f-prog-webhook');
+    if (input && !on) input.value = '';
+  },
+
   async openEditProgram(id) {
     try {
       const p = await API.get(`/referral-programs/${id}`);
       if (!p) return;
+      const hasRedirect = !!p.group_redirect_url;
+      const hasWebhook  = !!p.webhook_url;
       Modal.open('Editar Programa', `
         <form id="modal-form">
           <div class="field">
@@ -917,9 +962,42 @@ const Pages = {
             <label>Slug (somente leitura)</label>
             <input type="text" value="${esc(p.slug)}" readonly style="opacity:.5;cursor:not-allowed">
           </div>
-          <div class="field">
-            <label>Link do Grupo WhatsApp *</label>
-            <input type="url" id="f-prog-group" value="${esc(p.group_redirect_url)}" required>
+
+          <div class="toggle-row" style="margin:16px 0 8px">
+            <div>
+              <div class="toggle-label">Redirecionar após confirmação</div>
+              <div class="toggle-sub">Envia o convidado para um link automaticamente</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="f-prog-redirect-toggle" ${hasRedirect ? 'checked' : ''}
+                     onchange="Pages.toggleRedirectField(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div id="f-prog-redirect-wrap" style="display:${hasRedirect ? 'block' : 'none'}">
+            <div class="field">
+              <label>URL de Destino</label>
+              <input type="url" id="f-prog-group" value="${esc(p.group_redirect_url)}"
+                     ${hasRedirect ? 'required' : ''}>
+            </div>
+          </div>
+
+          <div class="toggle-row" style="margin:16px 0 8px">
+            <div>
+              <div class="toggle-label">Enviar para API / Webhook</div>
+              <div class="toggle-sub">Dispara um POST com os dados do convidado</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="f-prog-webhook-toggle" ${hasWebhook ? 'checked' : ''}
+                     onchange="Pages.toggleWebhookField(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div id="f-prog-webhook-wrap" style="display:${hasWebhook ? 'block' : 'none'}">
+            <div class="field">
+              <label>URL do Webhook</label>
+              <input type="url" id="f-prog-webhook" value="${esc(p.webhook_url)}">
+            </div>
           </div>
         </form>`,
         () => Pages.submitProgram(id),
@@ -929,16 +1007,27 @@ const Pages = {
   },
 
   async submitProgram(id) {
-    const name  = document.getElementById('f-prog-name')?.value?.trim();
-    const slug  = document.getElementById('f-prog-slug')?.value?.trim();
-    const group = document.getElementById('f-prog-group')?.value?.trim();
-    if (!name || !group) { toast('Preencha todos os campos obrigatórios', 'error'); return; }
+    const name    = document.getElementById('f-prog-name')?.value?.trim();
+    const slug    = document.getElementById('f-prog-slug')?.value?.trim();
+    const group   = document.getElementById('f-prog-group')?.value?.trim() || '';
+    const webhook = document.getElementById('f-prog-webhook')?.value?.trim() || '';
+    const redirectOn = document.getElementById('f-prog-redirect-toggle')?.checked;
+
+    if (!name) { toast('Nome é obrigatório', 'error'); return; }
+    if (redirectOn && !group) { toast('Informe a URL de destino do redirecionamento', 'error'); return; }
+
+    const payload = {
+      name,
+      group_redirect_url: redirectOn ? group : '',
+      webhook_url: webhook,
+    };
+
     try {
       if (id) {
-        await API.put(`/referral-programs/${id}`, { name, group_redirect_url: group });
+        await API.put(`/referral-programs/${id}`, payload);
       } else {
         if (!slug) { toast('Slug é obrigatório', 'error'); return; }
-        await API.post('/referral-programs', { name, slug, group_redirect_url: group });
+        await API.post('/referral-programs', { ...payload, slug });
       }
       Cache.del('/referral-programs');
       toast(id ? 'Programa atualizado!' : 'Programa criado!');
