@@ -34,13 +34,29 @@ module.exports = async function (fastify) {
     }
 
     const progResult = await db.query(
-      'SELECT id, name, group_redirect_url FROM referral_programs WHERE slug = $1 AND active = true',
+      'SELECT id, name, group_redirect_url, utm_parameters, max_referrals_per_referrer FROM referral_programs WHERE slug = $1 AND active = true',
       [program_slug]
     );
     if (!progResult.rows.length) {
       return reply.status(404).send({ error: 'Programa de indicação não encontrado ou inativo' });
     }
     const program = progResult.rows[0];
+
+    // Verifica limite de indicações por indicador (por telefone)
+    if (program.max_referrals_per_referrer) {
+      const countRes = await db.query(
+        'SELECT COUNT(*) FROM referrals WHERE program_id = $1 AND referrer_phone = $2',
+        [program.id, referrer_phone.trim()]
+      );
+      if (parseInt(countRes.rows[0].count) >= program.max_referrals_per_referrer) {
+        return reply.status(429).send({
+          error: `Você já atingiu o limite de ${program.max_referrals_per_referrer} indicação(ões) para este programa`,
+        });
+      }
+    }
+
+    // Mescla UTMs do programa (padrão) com UTMs da requisição (prevalecem)
+    const mergedUtm = { ...(program.utm_parameters || {}), ...(utm_data || {}) };
 
     // Gera código único com retry em caso de colisão (improvável)
     let inviteCode;
@@ -65,7 +81,7 @@ module.exports = async function (fastify) {
         invited_name.trim(),
         invited_phone.trim(),
         inviteCode,
-        JSON.stringify(utm_data || {}),
+        JSON.stringify(mergedUtm),
       ]
     );
 
@@ -108,7 +124,8 @@ module.exports = async function (fastify) {
     const { rows } = await db.query(
       `SELECT r.id, r.status, r.referrer_name, r.referrer_phone,
               r.invited_name, r.invited_phone, r.invite_code,
-              p.group_redirect_url, p.webhook_url, p.name AS program_name
+              p.group_redirect_url, p.webhook_url, p.name AS program_name,
+              p.utm_parameters
        FROM referrals r
        JOIN referral_programs p ON p.id = r.program_id
        WHERE r.invite_code = $1`,
@@ -156,7 +173,35 @@ module.exports = async function (fastify) {
       }).catch(err => console.error('[referral webhook]', err.message));
     }
 
-    return reply.send({ group_redirect_url: referral.group_redirect_url || null });
+    // Appenda UTMs do programa ao link de redirect
+    let redirectUrl = referral.group_redirect_url || null;
+    if (redirectUrl) {
+      const utmEntries = Object.entries(referral.utm_parameters || {}).filter(([, v]) => v);
+      if (utmEntries.length) {
+        const qs = utmEntries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+        redirectUrl += (redirectUrl.includes('?') ? '&' : '?') + qs;
+      }
+    }
+
+    return reply.send({ group_redirect_url: redirectUrl });
+  });
+
+  // ── Público: config de branding do programa ──────────────────────────────
+
+  fastify.get('/referrals/brand/:slug', {
+    config: { skipAuth: true },
+  }, async (req, reply) => {
+    const { rows } = await db.query(
+      `SELECT slug, form_title, form_subtitle,
+              brand_logo_url, brand_primary_color, brand_secondary_color,
+              utm_parameters, active
+       FROM referral_programs WHERE slug = $1`,
+      [req.params.slug]
+    );
+    if (!rows.length || !rows[0].active) {
+      return reply.status(404).send({ error: 'Programa não encontrado' });
+    }
+    return rows[0];
   });
 
   // ── Admin: listar indicações ──────────────────────────────────────────────
@@ -177,7 +222,7 @@ module.exports = async function (fastify) {
         r.referrer_name, r.referrer_phone, r.referrer_email,
         r.invited_name, r.invited_phone,
         r.claimed_name, r.claimed_email, r.claimed_phone, r.claimed_at,
-        r.whatsapp_sent, r.created_at,
+        r.whatsapp_sent, r.utm_data, r.created_at,
         p.name AS program_name, p.slug AS program_slug
       FROM referrals r
       JOIN referral_programs p ON p.id = r.program_id

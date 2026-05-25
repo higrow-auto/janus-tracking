@@ -985,7 +985,25 @@ const Pages = {
           </div>
         </div>
 
-        <div class="settings-section-label" style="margin-top:16px">UTM Parameters <span style="font-weight:400;opacity:.6">(opcionais)</span></div>
+        <div class="toggle-row" style="margin:16px 0 8px">
+          <div>
+            <div class="toggle-label">Limitar indicações por pessoa</div>
+            <div class="toggle-sub">Bloqueia o indicador após N convites (verificado pelo telefone)</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="f-prog-limit-toggle" onchange="Pages.toggleLimitField(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="f-prog-limit-wrap" style="display:none">
+          <div class="field">
+            <label>Máximo de indicações por indicador</label>
+            <input type="number" id="f-prog-limit" min="1" max="1000" placeholder="Ex: 3">
+            <p class="field-hint">O indicador será bloqueado após atingir este número de convites enviados.</p>
+          </div>
+        </div>
+
+        <div class="settings-section-label" style="margin-top:16px">UTM Parameters <span style="font-weight:400;opacity:.6">(opcionais — embutidos no redirect final)</span></div>
         <div class="field-row">
           <div class="field"><label>utm_source</label><input type="text" id="f-utm_source" placeholder="indica"></div>
           <div class="field"><label>utm_medium</label><input type="text" id="f-utm_medium" placeholder="mgm"></div>
@@ -1008,8 +1026,17 @@ const Pages = {
         </div>
         <div id="f-prog-brand-wrap" style="display:none">
           <div class="field">
-            <label>URL da Logo</label>
-            <input type="url" id="f-brand-logo" placeholder="https://exemplo.com/logo.png">
+            <label>Logo</label>
+            <input type="text" id="f-brand-logo" placeholder="https://exemplo.com/logo.png">
+            <div style="margin-top:6px;display:flex;align-items:center;gap:10px">
+              <label style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;color:var(--text-2)">
+                <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                Fazer upload
+                <input type="file" accept="image/*" style="display:none" onchange="Pages.handleLogoUpload(this)">
+              </label>
+              <span id="f-brand-logo-preview" style="font-size:11px;color:var(--text-2)"></span>
+            </div>
+            <p class="field-hint">URL externa ou upload direto (max 500 KB). JPG, PNG, SVG, WebP.</p>
           </div>
           <div class="field-row">
             <div class="field">
@@ -1052,6 +1079,30 @@ const Pages = {
     document.getElementById('f-prog-brand-wrap').style.display = on ? 'block' : 'none';
   },
 
+  toggleLimitField(on) {
+    document.getElementById('f-prog-limit-wrap').style.display = on ? 'block' : 'none';
+    const input = document.getElementById('f-prog-limit');
+    if (input && !on) input.value = '';
+  },
+
+  handleLogoUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      toast('Imagem muito grande. Máximo 500 KB.', 'error');
+      input.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const logoInput = document.getElementById('f-brand-logo');
+      const preview   = document.getElementById('f-brand-logo-preview');
+      if (logoInput) logoInput.value = e.target.result;
+      if (preview) preview.textContent = `✓ ${file.name}`;
+    };
+    reader.readAsDataURL(file);
+  },
+
   async openEditProgram(id) {
     try {
       const p = await API.get(`/referral-programs/${id}`);
@@ -1060,6 +1111,7 @@ const Pages = {
       const hasWebhook  = !!p.webhook_url;
       const utm = p.utm_parameters || {};
       const hasBrand = !!(p.brand_logo_url || p.brand_primary_color || p.brand_secondary_color || p.form_title || p.form_subtitle);
+      const hasLimit = !!p.max_referrals_per_referrer;
 
       Modal.open('Editar Programa', `
         <form id="modal-form">
@@ -1108,7 +1160,27 @@ const Pages = {
             </div>
           </div>
 
-          <div class="settings-section-label" style="margin-top:16px">UTM Parameters <span style="font-weight:400;opacity:.6">(opcionais)</span></div>
+          <div class="toggle-row" style="margin:16px 0 8px">
+            <div>
+              <div class="toggle-label">Limitar indicações por pessoa</div>
+              <div class="toggle-sub">Bloqueia o indicador após N convites (verificado pelo telefone)</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="f-prog-limit-toggle" ${hasLimit ? 'checked' : ''}
+                     onchange="Pages.toggleLimitField(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div id="f-prog-limit-wrap" style="display:${hasLimit ? 'block' : 'none'}">
+            <div class="field">
+              <label>Máximo de indicações por indicador</label>
+              <input type="number" id="f-prog-limit" min="1" max="1000"
+                     value="${p.max_referrals_per_referrer || ''}" placeholder="Ex: 3">
+              <p class="field-hint">O indicador será bloqueado após atingir este número de convites enviados.</p>
+            </div>
+          </div>
+
+          <div class="settings-section-label" style="margin-top:16px">UTM Parameters <span style="font-weight:400;opacity:.6">(opcionais — embutidos no redirect final)</span></div>
           <div class="field-row">
             <div class="field"><label>utm_source</label><input type="text" id="f-utm_source" value="${esc(utm.utm_source || '')}" placeholder="indica"></div>
             <div class="field"><label>utm_medium</label><input type="text" id="f-utm_medium" value="${esc(utm.utm_medium || '')}" placeholder="mgm"></div>
@@ -1132,8 +1204,19 @@ const Pages = {
           </div>
           <div id="f-prog-brand-wrap" style="display:${hasBrand ? 'block' : 'none'}">
             <div class="field">
-              <label>URL da Logo</label>
-              <input type="url" id="f-brand-logo" value="${esc(p.brand_logo_url || '')}" placeholder="https://...">
+              <label>Logo</label>
+              <input type="text" id="f-brand-logo" value="${esc(p.brand_logo_url || '')}" placeholder="https://...">
+              <div style="margin-top:6px;display:flex;align-items:center;gap:10px">
+                <label style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;color:var(--text-2)">
+                  <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                  Fazer upload
+                  <input type="file" accept="image/*" style="display:none" onchange="Pages.handleLogoUpload(this)">
+                </label>
+                <span id="f-brand-logo-preview" style="font-size:11px;color:var(--text-2)">
+                  ${p.brand_logo_url ? (p.brand_logo_url.startsWith('data:') ? '✓ Imagem salva' : '') : ''}
+                </span>
+              </div>
+              <p class="field-hint">URL externa ou upload direto (max 500 KB). JPG, PNG, SVG, WebP.</p>
             </div>
             <div class="field-row">
               <div class="field">
@@ -1177,16 +1260,20 @@ const Pages = {
       if (v) utmParams[k] = v;
     });
 
+    const limitOn  = document.getElementById('f-prog-limit-toggle')?.checked;
+    const limitVal = document.getElementById('f-prog-limit')?.value?.trim();
+
     const payload = {
       name,
-      group_redirect_url:    redirectOn ? group : '',
-      webhook_url:           webhook,
-      utm_parameters:        utmParams,
-      brand_logo_url:        document.getElementById('f-brand-logo')?.value?.trim()     || '',
-      brand_primary_color:   document.getElementById('f-brand-primary')?.value?.trim()  || '',
-      brand_secondary_color: document.getElementById('f-brand-secondary')?.value?.trim()|| '',
-      form_title:            document.getElementById('f-brand-title')?.value?.trim()    || '',
-      form_subtitle:         document.getElementById('f-brand-subtitle')?.value?.trim() || '',
+      group_redirect_url:          redirectOn ? group : '',
+      webhook_url:                  webhook,
+      utm_parameters:               utmParams,
+      brand_logo_url:               document.getElementById('f-brand-logo')?.value     || '',
+      brand_primary_color:          document.getElementById('f-brand-primary')?.value?.trim()  || '',
+      brand_secondary_color:        document.getElementById('f-brand-secondary')?.value?.trim()|| '',
+      form_title:                   document.getElementById('f-brand-title')?.value?.trim()    || '',
+      form_subtitle:                document.getElementById('f-brand-subtitle')?.value?.trim() || '',
+      max_referrals_per_referrer:   limitOn && limitVal ? parseInt(limitVal) : null,
     };
 
     try {

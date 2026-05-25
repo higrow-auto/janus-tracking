@@ -392,6 +392,12 @@
     let referrerData = {};
     let messageText = '';
 
+    // Captura UTMs presentes na URL (/indica/slug?utm_source=email&...)
+    const urlUtm = {};
+    new URLSearchParams(window.location.search).forEach((v, k) => {
+      if (k.startsWith('utm_')) urlUtm[k] = v;
+    });
+
     // Load brand config and apply custom styles/text
     fetch('/api/referrals/brand/' + slug)
       .then(r => r.ok ? r.json() : null)
@@ -492,6 +498,7 @@
             referrer_email: referrerData.email,
             invited_name: invName,
             invited_phone: invPhone,
+            utm_data: urlUtm,
           }),
         });
 
