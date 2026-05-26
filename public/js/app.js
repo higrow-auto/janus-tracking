@@ -359,9 +359,8 @@ const Pages = {
 
     try {
       const camps = await API.get('/campaigns');
-      if (camps) {
-        const sel = document.getElementById('link-camp-filter');
-        if (!sel) return;
+      const sel = document.getElementById('link-camp-filter');
+      if (camps && sel) {
         camps.forEach(c => {
           const o = document.createElement('option');
           o.value = c.id; o.textContent = c.name;
@@ -473,7 +472,11 @@ const Pages = {
               </tr>`).join('')}
           </tbody>
         </table></div>`;
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) {
+      toast(e.message, 'error');
+      const w = document.getElementById('links-table-wrap');
+      if (w) w.innerHTML = `<div class="empty-state"><p>Erro ao carregar links. <button onclick="Pages.loadLinks()" style="color:#C4B5FD;text-decoration:underline;background:none;border:none;cursor:pointer">Tentar novamente</button></p></div>`;
+    }
   },
 
   /* CAMPAIGNS */
