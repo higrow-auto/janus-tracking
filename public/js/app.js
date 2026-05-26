@@ -381,6 +381,7 @@ const Pages = {
       if (action === 'edit')      Pages.openEditLink(id);
       if (action === 'delete')    Pages.deleteLink(id, slug);
       if (action === 'toggle')    Pages.toggleActive(id, slug, btn.dataset.active === 'true');
+      if (action === 'wordpress') Pages.openWordPressIntegration(slug, url);
     });
   },
 
@@ -443,6 +444,10 @@ const Pages = {
                     <button class="btn-icon success" title="Copiar link"
                             data-action="copy" data-url="${esc(host + '/' + l.slug)}">
                       <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    </button>
+                    <button class="btn-icon" title="Integrar com WordPress/Elementor"
+                            data-action="wordpress" data-slug="${esc(l.slug)}" data-url="${esc(host + '/' + l.slug)}">
+                      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM3.5 12c0-.96.18-1.88.49-2.74L7.6 20.3A8.52 8.52 0 0 1 3.5 12zm8.5 8.5c-.96 0-1.88-.15-2.74-.43l2.91-8.46 2.98 8.17c.02.05.04.09.07.13A8.47 8.47 0 0 1 12 20.5zm1.22-12.86l2.51 7.48-3.54-1.06-1.45-4.2 2.48-2.22zm3.26 10.84l-2.5-7.44 2.28.68 2.16 6.47a8.54 8.54 0 0 1-1.94.29zM19.26 16l-1.9-5.68c.31-.12.59-.29.82-.54.55-.6.83-1.39.83-2.37 0-.78-.28-1.46-.83-1.99C17.63 4.9 16.84 4.5 16 4.5H8v.6c.58.21.96.77.96 1.4v11c0 .63-.38 1.19-.96 1.4V19h3.5v-.6c-.58-.21-.96-.77-.96-1.4v-4.5h1.26L14.3 19h2.38c.93 0 1.78-.15 2.58-.36z"/></svg>
                     </button>
                     <button class="btn-icon" title="Ver analytics"
                             data-action="analytics" data-id="${esc(l.id)}">
@@ -746,6 +751,76 @@ const Pages = {
       toast(currentlyActive ? `/${slug} desativado` : `/${slug} ativado`);
       await Pages.loadLinks();
     } catch (e) { toast(e.message, 'error'); }
+  },
+
+  openWordPressIntegration(slug, linkUrl) {
+    const snippet = `<script>
+(function($) {
+  // 1. Captura todos os parâmetros da URL da landing page (UTMs, sck, fbclid etc.)
+  var pageParams = {};
+  new URLSearchParams(window.location.search).forEach(function(v, k) {
+    pageParams[k] = v;
+  });
+
+  // 2. Quando o formulário Elementor enviar com sucesso,
+  //    redireciona para o Janus com os parâmetros da URL original
+  $(document).on('submit_success', '.elementor-form', function() {
+    var dest = new URL('${linkUrl}');
+    Object.keys(pageParams).forEach(function(k) {
+      dest.searchParams.set(k, pageParams[k]);
+    });
+    window.location.href = dest.toString();
+  });
+})(jQuery);
+<\/script>`;
+
+    Modal.open('Integrar com WordPress / Elementor', `
+      <div style="display:flex;flex-direction:column;gap:20px">
+
+        <div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:8px;padding:14px 16px">
+          <div style="font-size:12px;font-weight:600;color:#C4B5FD;margin-bottom:4px">LINK CONFIGURADO</div>
+          <div style="font-size:13px;color:#E8EAFF;font-family:monospace">${esc(linkUrl)}</div>
+          <div style="font-size:11px;color:#7B85B0;margin-top:4px">Todos os parâmetros da URL (UTMs, fbclid, sck…) são repassados automaticamente para o destino.</div>
+        </div>
+
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#7B85B0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Passo a Passo</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="min-width:24px;height:24px;border-radius:50%;background:#7C3AED;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">1</div>
+              <div style="font-size:13px;color:#C4B5FD;line-height:1.5">No <strong style="color:#E8EAFF">Elementor</strong>, abra o widget do formulário → <strong style="color:#E8EAFF">Actions After Submit</strong> → clique em <strong style="color:#E8EAFF">Redirect</strong> para expandir e <strong style="color:#E8EAFF">apague</strong> a URL que está lá (ou remova a ação Redirect).</div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="min-width:24px;height:24px;border-radius:50%;background:#7C3AED;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">2</div>
+              <div style="font-size:13px;color:#C4B5FD;line-height:1.5">No painel do WordPress, vá em <strong style="color:#E8EAFF">Elementor → Custom Code</strong> (ou use o plugin <em>Code Snippets</em>) e crie um novo snippet com o código abaixo. Defina a localização como <strong style="color:#E8EAFF">Head</strong> e ative <strong style="color:#E8EAFF">apenas na página</strong> do formulário.</div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="min-width:24px;height:24px;border-radius:50%;background:#7C3AED;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">3</div>
+              <div style="font-size:13px;color:#C4B5FD;line-height:1.5">Cole o snippet, salve e publique. Pronto — quando alguém chegar com <code style="background:rgba(124,58,237,.15);color:#C4B5FD;padding:1px 5px;border-radius:3px">?utm_source=Instagram</code> e enviar o form, será redirecionado para o Janus já com os parâmetros.</div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="min-width:24px;height:24px;border-radius:50%;background:#10B981;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">✓</div>
+              <div style="font-size:13px;color:#6EE7B7;line-height:1.5">Para testar: acesse a landing page com <code style="background:rgba(16,185,129,.1);color:#6EE7B7;padding:1px 5px;border-radius:3px">?utm_source=teste</code>, envie o form e confirme que o destino final recebeu o parâmetro.</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-size:12px;font-weight:600;color:#7B85B0;text-transform:uppercase;letter-spacing:.06em">Snippet para colar no WordPress</div>
+            <button onclick="(function(){
+              navigator.clipboard.writeText(document.getElementById('wp-snippet-code').textContent).then(function(){
+                var b=document.getElementById('wp-copy-btn');
+                b.textContent='Copiado!';
+                setTimeout(function(){b.textContent='Copiar';},2000);
+              });
+            })()" id="wp-copy-btn" style="background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#C4B5FD;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Copiar</button>
+          </div>
+          <pre id="wp-snippet-code" style="background:#080B1A;border:1px solid #1E2448;border-radius:8px;padding:14px;font-size:11px;color:#A5B4FC;font-family:monospace;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow-y:auto;margin:0;line-height:1.6">${esc(snippet)}</pre>
+        </div>
+
+      </div>
+    `);
   },
 
   /* ─── Campaign CRUD ──────────────────────────────────────────── */
