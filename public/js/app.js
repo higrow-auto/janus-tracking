@@ -757,6 +757,7 @@ const Pages = {
   },
 
   openWordPressIntegration(slug, linkUrl) {
+    const webhookUrl = window.location.origin + '/webhooks/leads?source=' + encodeURIComponent(slug);
     const snippet = `<script>
 (function($) {
   var pageParams = {};
@@ -822,10 +823,26 @@ const Pages = {
           </div>
         </div>
 
-        <!-- SNIPPET -->
+        <!-- CAPTURA DE LEADS -->
+        <div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.25);border-radius:8px;padding:14px 16px">
+          <div style="font-size:11px;font-weight:600;color:#6EE7B7;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">+ Salvar leads no Janus (opcional)</div>
+          <div style="font-size:12px;color:#A7F3D0;line-height:1.6;margin-bottom:10px">
+            O Elementor já tem a ação <strong>Webhook</strong> no seu formulário. Cole a URL abaixo nela — os dados de nome, e-mail e telefone serão salvos automaticamente em <strong>Leads Capturados</strong> no Janus.
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <code id="webhook-url-display" style="flex:1;background:#080B1A;border:1px solid #1E2448;border-radius:6px;padding:8px 10px;font-size:11px;color:#6EE7B7;font-family:monospace;word-break:break-all">${esc(webhookUrl)}</code>
+            <button onclick="navigator.clipboard.writeText('${esc(webhookUrl)}').then(function(){var b=document.getElementById('wh-copy-btn');b.textContent='Copiado ✓';setTimeout(function(){b.textContent='Copiar';},2000);})"
+              id="wh-copy-btn" style="white-space:nowrap;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#6EE7B7;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0">Copiar</button>
+          </div>
+          <div style="font-size:11px;color:#6EE7B7;margin-top:8px;opacity:.7">
+            No Elementor: <strong>Actions After Submit → Webhook → cole a URL acima</strong>. Certifique-se de que seus campos têm ID ou tipo configurados (email, tel, text).
+          </div>
+        </div>
+
+        <!-- SNIPPET UTM -->
         <div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <div style="font-size:12px;font-weight:600;color:#7B85B0;text-transform:uppercase;letter-spacing:.06em">Código para copiar</div>
+            <div style="font-size:12px;font-weight:600;color:#7B85B0;text-transform:uppercase;letter-spacing:.06em">Código para repassar UTMs (GTM / WordPress)</div>
             <button onclick="navigator.clipboard.writeText(document.getElementById('wp-snippet-code').textContent).then(function(){var b=document.getElementById('wp-copy-btn');b.textContent='Copiado ✓';setTimeout(function(){b.textContent='Copiar';},2000);})"
               id="wp-copy-btn" style="background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#C4B5FD;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Copiar</button>
           </div>
