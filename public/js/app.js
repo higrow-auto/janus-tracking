@@ -759,14 +759,10 @@ const Pages = {
   openWordPressIntegration(slug, linkUrl) {
     const snippet = `<script>
 (function($) {
-  // 1. Captura todos os parâmetros da URL da landing page (UTMs, sck, fbclid etc.)
   var pageParams = {};
   new URLSearchParams(window.location.search).forEach(function(v, k) {
     pageParams[k] = v;
   });
-
-  // 2. Quando o formulário Elementor enviar com sucesso,
-  //    redireciona para o Janus com os parâmetros da URL original
   $(document).on('submit_success', '.elementor-form', function() {
     var dest = new URL('${linkUrl}');
     Object.keys(pageParams).forEach(function(k) {
@@ -777,53 +773,67 @@ const Pages = {
 })(jQuery);
 <\/script>`;
 
-    Modal.open('Integrar com WordPress / Elementor', `
+    function step(n, color, text) {
+      return \`<div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="min-width:24px;height:24px;border-radius:50%;background:\${color};color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">\${n}</div>
+        <div style="font-size:13px;color:#C4B5FD;line-height:1.6">\${text}</div>
+      </div>\`;
+    }
+
+    Modal.open('Integrar com WordPress / Elementor', \`
       <div style="display:flex;flex-direction:column;gap:20px">
 
         <div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25);border-radius:8px;padding:14px 16px">
-          <div style="font-size:12px;font-weight:600;color:#C4B5FD;margin-bottom:4px">LINK CONFIGURADO</div>
-          <div style="font-size:13px;color:#E8EAFF;font-family:monospace">${esc(linkUrl)}</div>
-          <div style="font-size:11px;color:#7B85B0;margin-top:4px">Todos os parâmetros da URL (UTMs, fbclid, sck…) são repassados automaticamente para o destino.</div>
+          <div style="font-size:11px;font-weight:600;color:#C4B5FD;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Link Janus configurado</div>
+          <div style="font-size:13px;color:#E8EAFF;font-family:monospace;word-break:break-all">${esc(linkUrl)}</div>
+          <div style="font-size:11px;color:#7B85B0;margin-top:4px">UTMs e todos os parâmetros da URL são repassados automaticamente ao destino.</div>
         </div>
 
+        <!-- TABS -->
         <div>
-          <div style="font-size:12px;font-weight:600;color:#7B85B0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Passo a Passo</div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="display:flex;gap:12px;align-items:flex-start">
-              <div style="min-width:24px;height:24px;border-radius:50%;background:#7C3AED;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">1</div>
-              <div style="font-size:13px;color:#C4B5FD;line-height:1.5">No <strong style="color:#E8EAFF">Elementor</strong>, abra o widget do formulário → <strong style="color:#E8EAFF">Actions After Submit</strong> → clique em <strong style="color:#E8EAFF">Redirect</strong> para expandir e <strong style="color:#E8EAFF">apague</strong> a URL que está lá (ou remova a ação Redirect).</div>
-            </div>
-            <div style="display:flex;gap:12px;align-items:flex-start">
-              <div style="min-width:24px;height:24px;border-radius:50%;background:#7C3AED;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">2</div>
-              <div style="font-size:13px;color:#C4B5FD;line-height:1.5">No painel do WordPress, vá em <strong style="color:#E8EAFF">Elementor → Custom Code</strong> (ou use o plugin <em>Code Snippets</em>) e crie um novo snippet com o código abaixo. Defina a localização como <strong style="color:#E8EAFF">Head</strong> e ative <strong style="color:#E8EAFF">apenas na página</strong> do formulário.</div>
-            </div>
-            <div style="display:flex;gap:12px;align-items:flex-start">
-              <div style="min-width:24px;height:24px;border-radius:50%;background:#7C3AED;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">3</div>
-              <div style="font-size:13px;color:#C4B5FD;line-height:1.5">Cole o snippet, salve e publique. Pronto — quando alguém chegar com <code style="background:rgba(124,58,237,.15);color:#C4B5FD;padding:1px 5px;border-radius:3px">?utm_source=Instagram</code> e enviar o form, será redirecionado para o Janus já com os parâmetros.</div>
-            </div>
-            <div style="display:flex;gap:12px;align-items:flex-start">
-              <div style="min-width:24px;height:24px;border-radius:50%;background:#10B981;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">✓</div>
-              <div style="font-size:13px;color:#6EE7B7;line-height:1.5">Para testar: acesse a landing page com <code style="background:rgba(16,185,129,.1);color:#6EE7B7;padding:1px 5px;border-radius:3px">?utm_source=teste</code>, envie o form e confirme que o destino final recebeu o parâmetro.</div>
-            </div>
+          <div style="display:flex;gap:8px;margin-bottom:16px">
+            <button id="tab-gtm" onclick="document.getElementById('panel-gtm').style.display='flex';document.getElementById('panel-wp').style.display='none';document.getElementById('tab-gtm').style.background='#7C3AED';document.getElementById('tab-gtm').style.color='#fff';document.getElementById('tab-wp').style.background='rgba(124,58,237,.12)';document.getElementById('tab-wp').style.color='#C4B5FD';"
+              style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(124,58,237,.3);background:#7C3AED;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+              ⬡ Google Tag Manager
+            </button>
+            <button id="tab-wp" onclick="document.getElementById('panel-wp').style.display='flex';document.getElementById('panel-gtm').style.display='none';document.getElementById('tab-wp').style.background='#7C3AED';document.getElementById('tab-wp').style.color='#fff';document.getElementById('tab-gtm').style.background='rgba(124,58,237,.12)';document.getElementById('tab-gtm').style.color='#C4B5FD';"
+              style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(124,58,237,.3);background:rgba(124,58,237,.12);color:#C4B5FD;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+              ⊞ Direto no WordPress
+            </button>
+          </div>
+
+          <!-- PAINEL GTM -->
+          <div id="panel-gtm" style="display:flex;flex-direction:column;gap:10px">
+            \${step(1,'#7C3AED','Acesse <strong style="color:#E8EAFF">tagmanager.google.com</strong> → entre no container do seu site → <strong style="color:#E8EAFF">Tags → Nova</strong>')}
+            \${step(2,'#7C3AED','Em <strong style="color:#E8EAFF">Configuração da tag</strong>, escolha <strong style="color:#E8EAFF">HTML personalizado</strong> e cole o código abaixo')}
+            \${step(3,'#7C3AED','Em <strong style="color:#E8EAFF">Acionadores → Novo</strong>: tipo <strong style="color:#E8EAFF">Visualização de página</strong> → <em>Algumas visualizações de página</em> → condição: <strong style="color:#E8EAFF">URL da página contém</strong> → cole o caminho da sua landing page (ex: <code style="background:rgba(124,58,237,.15);color:#C4B5FD;padding:1px 5px;border-radius:3px">frequencia-ativa</code>)')}
+            \${step(4,'#7C3AED','Nomeie a tag (ex: <em>UTM Janus FA3</em>), salve e clique em <strong style="color:#E8EAFF">Enviar → Publicar</strong>')}
+            \${step(5,'#EC4899','No <strong style="color:#E8EAFF">Elementor</strong>, abra o formulário → <strong style="color:#E8EAFF">Actions After Submit → Redirect</strong> → <strong style="color:#E8EAFF">apague a URL</strong> que está lá. O código faz o redirect com as UTMs.')}
+            \${step('✓','#10B981','Teste: acesse a landing com <code style="background:rgba(16,185,129,.1);color:#6EE7B7;padding:1px 5px;border-radius:3px">?utm_source=teste</code>, envie o form e veja se o Hotmart recebeu o parâmetro na URL final.')}
+          </div>
+
+          <!-- PAINEL WORDPRESS DIRETO -->
+          <div id="panel-wp" style="display:none;flex-direction:column;gap:10px">
+            \${step(1,'#7C3AED','<strong style="color:#E8EAFF">Opção A — GTM (recomendado):</strong> use a aba ao lado')}
+            \${step(2,'#7C3AED','<strong style="color:#E8EAFF">Opção B — Widget HTML:</strong> no editor Elementor da página, busque o widget <strong style="color:#E8EAFF">HTML</strong>, arraste para a página e cole o código abaixo')}
+            \${step(3,'#7C3AED','<strong style="color:#E8EAFF">Opção C — Plugin Code Snippets:</strong> WordPress → Plugins → Adicionar novo → busque <em>Code Snippets</em> → instale → Snippets → Adicionar novo → cole o código <strong style="color:#E8EAFF">sem</strong> as tags &lt;script&gt; → localização: <em>Somente front-end</em>')}
+            \${step(4,'#EC4899','No <strong style="color:#E8EAFF">Elementor</strong>, abra o formulário → <strong style="color:#E8EAFF">Actions After Submit → Redirect</strong> → <strong style="color:#E8EAFF">apague a URL</strong>. O código faz o redirect com as UTMs.')}
+            \${step('✓','#10B981','Teste com <code style="background:rgba(16,185,129,.1);color:#6EE7B7;padding:1px 5px;border-radius:3px">?utm_source=teste</code> na URL da landing page.')}
           </div>
         </div>
 
+        <!-- SNIPPET -->
         <div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <div style="font-size:12px;font-weight:600;color:#7B85B0;text-transform:uppercase;letter-spacing:.06em">Snippet para colar no WordPress</div>
-            <button onclick="(function(){
-              navigator.clipboard.writeText(document.getElementById('wp-snippet-code').textContent).then(function(){
-                var b=document.getElementById('wp-copy-btn');
-                b.textContent='Copiado!';
-                setTimeout(function(){b.textContent='Copiar';},2000);
-              });
-            })()" id="wp-copy-btn" style="background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#C4B5FD;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Copiar</button>
+            <div style="font-size:12px;font-weight:600;color:#7B85B0;text-transform:uppercase;letter-spacing:.06em">Código para copiar</div>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('wp-snippet-code').textContent).then(function(){var b=document.getElementById('wp-copy-btn');b.textContent='Copiado ✓';setTimeout(function(){b.textContent='Copiar';},2000);})"
+              id="wp-copy-btn" style="background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#C4B5FD;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Copiar</button>
           </div>
-          <pre id="wp-snippet-code" style="background:#080B1A;border:1px solid #1E2448;border-radius:8px;padding:14px;font-size:11px;color:#A5B4FC;font-family:monospace;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow-y:auto;margin:0;line-height:1.6">${esc(snippet)}</pre>
+          <pre id="wp-snippet-code" style="background:#080B1A;border:1px solid #1E2448;border-radius:8px;padding:14px;font-size:11px;color:#A5B4FC;font-family:monospace;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;margin:0;line-height:1.6">${esc(snippet)}</pre>
         </div>
 
       </div>
-    `);
+    \`);
   },
 
   /* ─── Campaign CRUD ──────────────────────────────────────────── */
