@@ -21,14 +21,25 @@ const API = {
   base: '/api',
 
   async req(method, path, body) {
-    const res = await fetch(this.base + path, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.token}`,
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 12000);
+    let res;
+    try {
+      res = await fetch(this.base + path, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.token}`,
+        },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      clearTimeout(tid);
+      if (e.name === 'AbortError') throw new Error('Tempo limite excedido. Verifique sua conexão e tente novamente.');
+      throw new Error('Erro de conexão. Verifique sua internet.');
+    }
+    clearTimeout(tid);
     if (res.status === 401) { App.logout(); return null; }
     if (res.status === 204) return null;
     const data = await res.json().catch(() => null);
@@ -66,6 +77,7 @@ const API = {
 /* ─── Toast ───────────────────────────────────────────────────── */
 function toast(msg, type = 'success') {
   const el = document.getElementById('toast');
+  if (!el) { console.warn('[toast]', type, msg); return; }
   el.textContent = msg;
   el.className = `toast ${type}`;
   el.classList.remove('hidden');
@@ -328,7 +340,13 @@ const Pages = {
         : `<div class="empty-state"><div class="icon">🔗</div><p>Nenhum link criado ainda</p></div>`;
 
       document.getElementById('top-links-wrap').innerHTML = topHtml;
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) {
+      toast(e.message, 'error');
+      const sg = document.getElementById('stats-grid');
+      if (sg) sg.innerHTML = `<div class="stat-card" style="grid-column:1/-1;text-align:center;color:var(--text-2)">Erro ao carregar. <button onclick="Pages.dashboard()" style="color:#C4B5FD;text-decoration:underline;background:none;border:none;cursor:pointer">Tentar novamente</button></div>`;
+      const tl = document.getElementById('top-links-wrap');
+      if (tl) tl.innerHTML = '';
+    }
   },
 
   /* LINKS */
@@ -544,7 +562,10 @@ const Pages = {
               </tr>`).join('')}
           </tbody>
         </table></div>`;
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) {
+      toast(e.message, 'error');
+      if (wrap) wrap.innerHTML = `<div class="empty-state"><p>Erro ao carregar. <button onclick="Pages.loadCampaigns()" style="color:#C4B5FD;text-decoration:underline;background:none;border:none;cursor:pointer">Tentar novamente</button></p></div>`;
+    }
   },
 
   /* ANALYTICS */
@@ -581,7 +602,7 @@ const Pages = {
       }
       if (links) {
         const sel = document.getElementById('analytics-link-sel');
-        if (!sel) return;
+        if (!sel) { return; }
         links.forEach(l => {
           const o = document.createElement('option');
           o.value = l.id;
@@ -1895,7 +1916,11 @@ const App = {
         document.getElementById('login-error').classList.remove('hidden');
       }
     } catch {
-      document.getElementById('login-error').classList.remove('hidden');
+      const errEl = document.getElementById('login-error');
+      if (errEl) {
+        errEl.textContent = 'Erro de conexão. Verifique sua internet.';
+        errEl.classList.remove('hidden');
+      }
     }
   },
 
@@ -1918,7 +1943,18 @@ const App = {
       el.classList.toggle('active', el.dataset.page === page);
     });
     const fn = Pages[page];
-    if (fn) fn.call(Pages, ...args);
+    if (!fn) return;
+    Promise.resolve(fn.call(Pages, ...args)).catch(e => {
+      console.error('[navigate]', page, e);
+      const content = document.getElementById('page-content');
+      if (content) content.innerHTML = `
+        <div class="page">
+          <div class="empty-state" style="padding:60px 0">
+            <p style="color:var(--text-2);margin-bottom:12px">Erro ao carregar a página.</p>
+            <button onclick="App.navigate('${page}')" class="btn btn-secondary" style="width:auto;padding:8px 20px">Tentar novamente</button>
+          </div>
+        </div>`;
+    });
   },
 
   bindNav() {
